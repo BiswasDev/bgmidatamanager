@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NexusForge | Dynamic Schedule & WWCD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            background-color: transparent; 
+            font-family: 'Teko', sans-serif;
+            text-transform: uppercase; 
+            overflow: hidden;
+        }
+        .bg-navy { background-color: #1b2740; }
+        .text-navy { color: #1b2740; }
+        .bg-orange { background-color: #ff6b00; }
+        .text-orange { color: #ff6b00; }
+        
+        .grunge-overlay { position: relative; }
+        .grunge-overlay::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.15;
+            mix-blend-mode: multiply;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .layer { transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hidden-layer { opacity: 0; transform: scale(0.95); pointer-events: none; z-index: 10; }
+        .active-layer { opacity: 1; transform: scale(1); pointer-events: auto; z-index: 20; }
+        
+        .dashed-divider {
+            background-image: linear-gradient(to bottom, rgba(255,255,255,0.5) 40%, transparent 40%);
+            background-position: left;
+            background-size: 2px 10px;
+            background-repeat: repeat-y;
+        }
+    </style>
+</head>
+<body class="w-[1920px] h-[1080px] flex items-center justify-start bg-black/80 pl-12">
+
+    <!-- Container aligns items naturally from left to right -->
+    <div class="flex flex-wrap gap-6 items-center justify-start w-full px-8" id="schedule-container">
+        <!-- JS DYNAMICALLY RENDERS MATCH CARDS HERE -->
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost/bgmidatamanager/broadcast_api.php?action=schedule_data';
+        const container = document.getElementById('schedule-container');
+
+        async function updateSchedule() {
+            try {
+                const response = await fetch(API_URL);
+                const matches = await response.json();
+
+                if (!Array.isArray(matches) || matches.length === 0) {
+                    container.innerHTML = ''; 
+                    return;
+                }
+
+                const validMatchIDs = [];
+
+                matches.forEach((match, index) => {
+                    const uniqueKey = `match-${match.match_no}-${index}`;
+                    validMatchIDs.push(`card-${uniqueKey}`);
+
+                    let card = document.getElementById(`card-${uniqueKey}`);
+
+                    if (!card) {
+                        const htmlContent = `
+                        <div id="card-${uniqueKey}" class="relative w-[300px] h-[750px] shadow-2xl overflow-hidden bg-navy border border-gray-800 shrink-0">
+                            <!-- SCHEDULE VIEW (BLUE) -->
+                            <div id="${uniqueKey}-schedule" class="layer active-layer absolute inset-0 flex flex-col">
+                                <div class="flex h-[75px] w-full items-center">
+                                    <div class="w-[55%] h-full bg-navy flex items-center justify-center">
+                                        <span id="${uniqueKey}-sched-no" class="text-white text-5xl font-semibold mt-2 tracking-wide">MATCH ${match.match_no}</span>
+                                    </div>
+                                    <div class="w-[2px] h-[60%] dashed-divider z-20"></div>
+                                    <div class="w-[45%] h-full bg-orange grunge-overlay flex items-center justify-center">
+                                        <span id="${uniqueKey}-time" class="text-navy text-5xl font-bold mt-2 tracking-wider">TBD</span>
+                                    </div>
+                                </div>
+                                <div id="${uniqueKey}-map-img" class="flex-1 w-full bg-cover bg-center transition-all duration-300"></div>
+                                <div class="h-[170px] w-full bg-orange grunge-overlay flex flex-col items-center justify-center pt-2">
+                                    <span id="${uniqueKey}-group" class="text-navy font-bold text-3xl tracking-widest leading-none mb-1">GROUP</span>
+                                    <span id="${uniqueKey}-map-name" class="text-white font-bold text-[5.5rem] leading-none drop-shadow-md">MAP</span>
+                                </div>
+                            </div>
+
+                            <!-- WWCD VIEW (GREEN) -->
+                            <div id="${uniqueKey}-wwcd" class="layer hidden-layer absolute inset-0 flex flex-col bg-cover bg-center border-4 border-[#121c80]">
+                                <div class="absolute inset-0 bg-[#a4e813] mix-blend-multiply opacity-90"></div>
+                                <div class="absolute inset-0 bg-[#a4e813] opacity-70"></div>
+                                <div class="relative z-30 flex flex-col items-center justify-between h-full p-6">
+                                    <div class="absolute top-4 left-4 text-[#16301a] font-bold text-3xl tracking-widest">
+                                        <span id="${uniqueKey}-wwcd-no">M${match.match_no}</span>
+                                    </div>
+                                    <div class="flex-1 w-full flex items-center justify-center mt-10">
+                                        <img id="${uniqueKey}-winner-logo" src="" class="w-[200px] h-[200px] object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)]">
+                                    </div>
+                                    <div class="flex-1 w-full flex flex-col items-center justify-end">
+                                        <img src="assets/golden-chicken.png" class="w-[220px] h-auto object-contain drop-shadow-2xl mb-6">
+                                        <span id="${uniqueKey}-wwcd-map" class="text-[#16301a] font-bold text-[6rem] leading-none tracking-widest uppercase pb-4">MAP</span>
+                                    </div>
+                                    <div class="absolute bottom-0 w-full h-[6px] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIxMCI+PHBhdGggZD0iTTAgMTBMNSAwTDEwIDEwTDE1IDBMMjAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzE2MzAxYSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+')] bg-repeat-x"></div>
+                                </div>
+                            </div>
+                        </div>`;
+                        container.insertAdjacentHTML('beforeend', htmlContent);
+                    }
+
+                    const scheduleLayer = document.getElementById(`${uniqueKey}-schedule`);
+                    const wwcdLayer = document.getElementById(`${uniqueKey}-wwcd`);
+                    const mapName = match.map_name || 'Erangel';
+                    const bgUrl = `url('maps/${mapName.toLowerCase()}.jpg')`;
+
+                    // Only show green card if explicitly finished
+                    if (match.status === 'finished' && match.winner_logo) {
+                        document.getElementById(`${uniqueKey}-winner-logo`).src = match.winner_logo;
+                        document.getElementById(`${uniqueKey}-wwcd-map`).innerText = mapName;
+                        document.getElementById(`${uniqueKey}-wwcd-no`).innerText = `M${match.match_no}`;
+                        document.getElementById(`${uniqueKey}-wwcd`).style.backgroundImage = bgUrl;
+                        
+                        scheduleLayer.classList.replace('active-layer', 'hidden-layer');
+                        wwcdLayer.classList.replace('hidden-layer', 'active-layer');
+                    } else {
+                        // Force clean blue schedule card view
+                        document.getElementById(`${uniqueKey}-map-name`).innerText = mapName;
+                        document.getElementById(`${uniqueKey}-group`).innerText = match.group_name || '';
+                        document.getElementById(`${uniqueKey}-time`).innerText = match.time || 'TBD';
+                        document.getElementById(`${uniqueKey}-sched-no`).innerText = `MATCH ${match.match_no}`;
+                        document.getElementById(`${uniqueKey}-map-img`).style.backgroundImage = bgUrl;
+                        
+                        wwcdLayer.classList.replace('active-layer', 'hidden-layer');
+                        scheduleLayer.classList.replace('hidden-layer', 'active-layer');
+                    }
+                });
+
+                Array.from(container.children).forEach(child => {
+                    if (!validMatchIDs.includes(child.id)) {
+                        child.remove();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Schedule Fetch Error:", error);
+            }
+        }
+
+        setInterval(updateSchedule, 2000);
+        updateSchedule();
+    </script>
+</body>
+</html>

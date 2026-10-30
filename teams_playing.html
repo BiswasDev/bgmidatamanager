@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NexusForge | Teams Playing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            background-color: transparent; 
+            font-family: 'Teko', sans-serif;
+            overflow: hidden;
+        }
+        
+        .bg-card-blue { background-color: #0d2259; }
+        .bg-card-orange { background-color: #f97000; }
+        
+        .grunge-overlay { position: relative; }
+        .grunge-overlay::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            opacity: 0.20;
+            mix-blend-mode: multiply;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Smooth scaling transition */
+        #scale-wrapper {
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="w-[1920px] h-[1080px] flex flex-col items-center justify-center bg-black/80 overflow-hidden">
+
+    <!-- Wrapper that handles the dynamic scaling -->
+    <div id="scale-wrapper" class="w-full flex justify-center items-center">
+        
+        <!-- Flex container replaces strict grid to allow auto-centering of ANY number of teams -->
+        <div id="teams-container" class="flex flex-wrap justify-center gap-x-5 gap-y-8 w-full max-w-[1850px] px-4">
+            <!-- JS WILL GENERATE CARDS HERE -->
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost/bgmidatamanager/broadcast_api.php?action=next_match_teams';
+        const container = document.getElementById('teams-container');
+        const scaleWrapper = document.getElementById('scale-wrapper');
+
+        async function updateTeams() {
+            try {
+                const response = await fetch(API_URL);
+                const teams = await response.json();
+
+                if (!Array.isArray(teams) || teams.length === 0) {
+                    container.innerHTML = ''; 
+                    scaleWrapper.style.transform = 'scale(1)';
+                    return;
+                }
+
+                // --- DYNAMIC SCALING LOGIC ---
+                // Adjusts the zoom level of the entire container so it never breaks 1080p height
+                if (teams.length <= 16) {
+                    scaleWrapper.style.transform = 'scale(1)';      // 1-16 Teams: Full Size (8x2)
+                } else if (teams.length <= 24) {
+                    scaleWrapper.style.transform = 'scale(0.85)';   // 17-24 Teams: Shrink slightly (8x3)
+                } else {
+                    scaleWrapper.style.transform = 'scale(0.70)';   // 25+ Teams: Shrink more to fit (8x4+)
+                }
+
+                let htmlContent = '';
+
+                teams.forEach((team) => {
+                    const displayTag = team.team_tag.length > 8 ? team.team_tag.substring(0, 8) : team.team_tag;
+
+                    htmlContent += `
+                        <div class="flex flex-col w-[210px] h-[260px] shadow-2xl shrink-0">
+                            <!-- TOP BLUE LOGO SECTION -->
+                            <div class="h-[210px] w-full bg-card-blue flex items-center justify-center p-5 border-b-[3px] border-[#071336]">
+                                <img src="${team.logo}" class="max-w-full max-h-full object-contain filter drop-shadow-[0_8px_8px_rgba(0,0,0,0.5)]">
+                            </div>
+                            
+                            <!-- BOTTOM ORANGE TAG SECTION -->
+                            <div class="h-[50px] w-full bg-card-orange grunge-overlay flex items-center justify-center border-t border-[#ff9d4d]">
+                                <span class="text-white font-bold text-[2.5rem] tracking-widest uppercase mt-2 drop-shadow-md leading-none">
+                                    ${displayTag}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if (container.innerHTML !== htmlContent) {
+                    container.innerHTML = htmlContent;
+                }
+
+            } catch (error) {
+                console.error("Teams Fetch Error:", error);
+            }
+        }
+
+        setInterval(updateTeams, 3000);
+        updateTeams();
+    </script>
+</body>
+</html>
